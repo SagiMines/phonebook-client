@@ -1,3 +1,30 @@
-.list-group {
+.contact-info {
+  flex: 1 0 0;
+  justify-content: space-between;
+}
+
+.contact-info > .col:nth-child(2) {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.contact-img {
+  width: 5em;
+}
+
+#scrollableDiv {
+  height: 18em;
+  overflow: auto;
   width: 50%;
+}
+
+.infinite-scroll-component {
+  display: flex;
+  flex-flow: column wrap;
+}
+
+@media screen and (max-width: 767px) {
+  .contact-info > .col:nth-child(2) {
+    justify-content: center;
+  }
 }
