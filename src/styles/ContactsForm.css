@@ -6,7 +6,7 @@
   width: 50%;
 }
 
-.add-more-phones {
+.add-more {
   cursor: pointer;
   color: blue;
   font-size: 13px;
@@ -19,4 +19,15 @@
 
 .phone-number {
   margin-top: 5px;
+}
+
+.contact-image {
+  width: 5em;
+  height: 5em;
+  padding: 0;
+}
+
+.confirm-button {
+  margin-top: 5px;
+  margin-right: 10px;
 }

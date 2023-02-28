@@ -2,11 +2,18 @@ import { Col, Form, Button, Row } from 'react-bootstrap';
 import configData from './config/config.json';
 import S3FileUpload from 'react-s3';
 import './styles/ContactsForm.css';
-import { useState } from 'react';
-import { useMutation } from '@apollo/client';
-import { CREATE_CONTACT } from './GraphQL/Mutations';
+import { useState, useEffect, useContext, useRef } from 'react';
+import { ContactsContext } from './ContactsContext';
+import { useMutation, useQuery } from '@apollo/client';
+import {
+  CREATE_CONTACT,
+  UPDATE_CONTACT,
+  REMOVE_CONTACT,
+} from './GraphQL/Mutations';
+import { GET_ONE_CONTACT } from './GraphQL/Queries';
 window.Buffer = window.Buffer || require('buffer').Buffer;
 
+// Configuration for react-s3 package
 const config = {
   bucketName: configData.S3_BUCKET_NAME,
   region: configData.S3_REGION,
@@ -15,8 +22,29 @@ const config = {
 };
 
 export default function ContactsForm(props) {
-  const [createContact, { error }] = useMutation(CREATE_CONTACT);
-  const [linkClick, setLinkClick] = useState(0);
+  // Main context
+  const { fetchMore, setContacts } = useContext(ContactsContext);
+  // GraphQL
+  const [createContact, { error: createError }] = useMutation(CREATE_CONTACT);
+  const [updateContact, { error: updateError }] = useMutation(UPDATE_CONTACT);
+  const [removeContact, { error: removeError }] = useMutation(REMOVE_CONTACT);
+  const { data: queryData } = useQuery(GET_ONE_CONTACT, {
+    skip: props.forPage === 'add',
+    variables: { id: props.editedContactId },
+  });
+  // States
+  const [linkClick, setLinkClick] = useState(
+    props.forPage === 'add'
+      ? 0
+      : {
+          firstName: false,
+          lastName: false,
+          nickName: false,
+          phoneNumbers: { click: false, times: 0 },
+          address: false,
+          photo: false,
+        }
+  );
   const [state, setState] = useState({
     alerts: {
       firstName: '',
@@ -34,12 +62,13 @@ export default function ContactsForm(props) {
       photo: null,
     },
   });
+  // Refs
+  const phoneNumberInputRef = useRef({});
 
   const handleChange = e => {
     e.target.name === 'photo'
       ? (state.values[e.target.name] = e.target.files[0])
       : (state.values[e.target.name] = e.target.value);
-
     switch (e.target.name) {
       case 'firstName':
       case 'lastName':
@@ -73,20 +102,38 @@ export default function ContactsForm(props) {
   };
 
   const addContact = async () => {
-    console.log(state.values);
     await createContact({
       variables: {
         contact: state.values,
       },
     });
 
-    if (error) {
-      console.log(error);
+    if (createError) {
+      console.log(createError);
     }
+    await fetchMore({
+      variables: { offset: 0 },
+    });
   };
 
-  const handleBlur = e => {
-    state.values[e.target.name].push(e.target.value);
+  const createNameFromKey = key => {
+    let name = key;
+    if (/[A-Z]/.test(key)) {
+      for (let i = 0; i < key.length; i++) {
+        if (/[A-Z]/.test(key[i])) {
+          name = `${
+            key.slice(0, i).charAt(0).toUpperCase() + key.slice(0, i).slice(1)
+          } ${key.slice(i).charAt(0).toLowerCase() + key.slice(i).slice(1)}`;
+          return name;
+        }
+      }
+    }
+    return name;
+  };
+
+  const handlePhoneNumberChange = e => {
+    phoneNumberInputRef.current[e.target.id] = e.target.value;
+
     state.alerts[e.target.name] =
       e.target.value.length === 0
         ? '* The phone number cannot be empty'
@@ -96,6 +143,12 @@ export default function ContactsForm(props) {
   };
 
   const handleSubmit = async () => {
+    if (props.forPage === 'add') {
+      for (const [key, value] of Object.entries(phoneNumberInputRef.current)) {
+        state.values.phoneNumbers[key] = value;
+      }
+    }
+
     // filter all the inputs with alerts
     const check = Object.entries(state.alerts).filter(
       value => value[1] !== null
@@ -110,7 +163,6 @@ export default function ContactsForm(props) {
         .then(data => {
           state.values.photo = data.location;
           setState({ ...state });
-          props.isContactAddedSetter(true);
           addContact();
         })
         .catch(err => console.error(err));
@@ -120,116 +172,275 @@ export default function ContactsForm(props) {
     props.closeModal();
   };
 
+  const handleLinkClickEdit = e => {
+    e.target.name === 'phoneNumbers'
+      ? (linkClick[e.target.name].click = true)
+      : (linkClick[e.target.name] = true);
+    setLinkClick({ ...linkClick });
+  };
+
+  const handleRemove = async () => {
+    props.closeModal();
+    await removeContact({
+      variables: {
+        id: props.editedContactId,
+      },
+    });
+
+    if (removeError) {
+      console.log(removeError);
+    }
+    await fetchMore({
+      variables: { offset: 0 },
+    });
+  };
+
+  const handleEdit = async e => {
+    if (e.target.name === 'phoneNumbers') {
+      for (const [key, value] of Object.entries(phoneNumberInputRef.current)) {
+        state.values.phoneNumbers[key] = value;
+      }
+    }
+    if (e.target.name === 'photo') {
+      const newData = await S3FileUpload.uploadFile(state.values.photo, config);
+      state.values.photo = newData.location;
+
+      setState({ ...state });
+    }
+    if (!state.alerts[e.target.name]) {
+      await updateContact({
+        variables: {
+          contact: state.values,
+          id: props.editedContactId,
+        },
+      });
+
+      if (updateError) {
+        console.log(updateError);
+      }
+      const check = await fetchMore({
+        variables: { offset: 0 },
+      });
+      setContacts([...check.data.getFiveDesc]);
+    }
+    e.target.name !== 'phoneNumbers'
+      ? (linkClick[e.target.name] = false)
+      : (linkClick[e.target.name].click = false);
+    setLinkClick({ ...linkClick });
+  };
+
+  useEffect(() => {
+    if (props.forPage === 'edit' && queryData) {
+      state.values = { ...queryData.getOne };
+      delete state.values.__typename;
+      delete state.values.id;
+      state.values.phoneNumbers = [...state.values.phoneNumbers];
+      setState({ ...state });
+    }
+  }, [queryData]);
+
   return (
     <Form>
       <Row>
-        <Col md={6}>
-          <Form.Group className="mb-3">
-            <Form.Label>First name</Form.Label>
-            <Form.Control
-              onChange={handleChange}
-              name="firstName"
-              type="text"
-              placeholder="First name"
-            />
-          </Form.Group>
-          <p className="input-alert">
-            {state.alerts.firstName && state.alerts.firstName}
-          </p>
-        </Col>
+        {Object.keys(state.values).map((key, index) =>
+          key === 'phoneNumbers' ? (
+            <Col key={index} md={6}>
+              <Form.Group className="mb-3">
+                <Form.Label>Phone numbers</Form.Label>
 
-        <Col md={6}>
-          <Form.Group className="mb-3">
-            <Form.Label>Last name</Form.Label>
-            <Form.Control
-              onChange={handleChange}
-              name="lastName"
-              type="text"
-              placeholder="Last name"
-            />
-          </Form.Group>
-          <p className="input-alert">
-            {state.alerts.lastName && state.alerts.lastName}
-          </p>
-        </Col>
+                {props.forPage === 'edit' &&
+                  state.values.phoneNumbers.map((number, index) => (
+                    <div key={index}>
+                      {!linkClick.phoneNumbers.click && (
+                        <h3 key={index}>{`${index + 1}. ${number}`}</h3>
+                      )}
+                      {linkClick.phoneNumbers.click && (
+                        <Form.Control
+                          id={index}
+                          onChange={handlePhoneNumberChange}
+                          name="phoneNumbers"
+                          defaultValue={number}
+                          type="text"
+                          placeholder="Phone number"
+                        />
+                      )}
+                    </div>
+                  ))}
+                {props.forPage === 'add' && (
+                  <Form.Control
+                    id="0"
+                    onChange={handlePhoneNumberChange}
+                    name="phoneNumbers"
+                    type="text"
+                    placeholder="Phone number"
+                  />
+                )}
 
-        <Col md={6}>
-          <Form.Group className="mb-3">
-            <Form.Label>Nickname</Form.Label>
-            <Form.Control
-              onChange={handleChange}
-              name="nickName"
-              type="text"
-              placeholder="Nickname"
-            />
-          </Form.Group>
-          <p className="input-alert">
-            {state.alerts.nickName && state.alerts.nickName}
-          </p>
-        </Col>
+                {((props.forPage === 'add' && linkClick !== 0) ||
+                  (props.forPage === 'edit' &&
+                    linkClick.phoneNumbers.times !== 0 &&
+                    linkClick.phoneNumbers.click)) &&
+                  Array.from({
+                    length:
+                      props.forPage === 'add'
+                        ? linkClick
+                        : linkClick.phoneNumbers.times,
+                  }).map((val, index) => (
+                    <Form.Control
+                      id={
+                        props.forPage === 'edit'
+                          ? state.values.phoneNumbers.length + index
+                          : index + 1
+                      }
+                      onChange={handlePhoneNumberChange}
+                      className="phone-number"
+                      name="phoneNumbers"
+                      key={index}
+                      type="text"
+                      placeholder="Phone number"
+                    />
+                  ))}
 
-        <Col md={6}>
-          <Form.Group className="mb-3">
-            <Form.Label>Phone numbers</Form.Label>
-            <Form.Control
-              onBlur={handleBlur}
-              name="phoneNumbers"
-              type="text"
-              placeholder="Phone number"
-            />
-            {linkClick !== 0 &&
-              Array.from({ length: linkClick }).map((val, index) => (
-                <Form.Control
-                  onBlur={handleBlur}
-                  className="phone-number"
-                  name="phoneNumbers"
-                  key={index}
-                  type="text"
-                  placeholder="Phone number"
-                />
-              ))}
-            <a
-              className="add-more-phones"
-              onClick={() => setLinkClick(prevVal => prevVal + 1)}
-            >
-              + Add more
-            </a>
-          </Form.Group>
-          <p className="input-alert">
-            {state.alerts.phoneNumbers && state.alerts.phoneNumbers}
-          </p>
-        </Col>
+                {props.forPage === 'edit' && linkClick.phoneNumbers.click && (
+                  <Button
+                    className="confirm-button"
+                    variant="dark"
+                    name="phoneNumbers"
+                    onClick={handleEdit}
+                  >
+                    Confirm
+                  </Button>
+                )}
+                {props.forPage === 'edit' && !linkClick.phoneNumbers.click && (
+                  <a
+                    name="phoneNumbers"
+                    className="add-more"
+                    onClick={handleLinkClickEdit}
+                  >
+                    Edit
+                  </a>
+                )}
 
-        <Col md={6}>
-          <Form.Group className="mb-3">
-            <Form.Label>Address</Form.Label>
-            <Form.Control
-              onChange={handleChange}
-              name="address"
-              type="text"
-              placeholder="Address"
-            />
-          </Form.Group>
-          <p className="input-alert">
-            {state.alerts.address && state.alerts.address}
-          </p>
-        </Col>
+                {((props.forPage === 'edit' && linkClick.phoneNumbers.click) ||
+                  props.forPage === 'add') && (
+                  <a
+                    className="add-more"
+                    onClick={
+                      props.forPage === 'add'
+                        ? () => {
+                            setLinkClick(prevVal => prevVal + 1);
+                          }
+                        : () => {
+                            linkClick.phoneNumbers.times += 1;
 
-        <Col md={6}>
-          <Form.Group className="mb-3">
-            <Form.Label>Upload photo</Form.Label>
-            <Form.Control
-              onChange={handleChange}
-              name="photo"
-              type="file"
-              accept="image/png, image/jpeg"
-            />
-          </Form.Group>
-        </Col>
+                            setLinkClick({ ...linkClick });
+                          }
+                    }
+                  >
+                    + Add more
+                  </a>
+                )}
+              </Form.Group>
+              <p className="input-alert">
+                {state.alerts.phoneNumbers && state.alerts.phoneNumbers}
+              </p>
+            </Col>
+          ) : key === 'photo' ? (
+            <Col key={index} md={6}>
+              <Form.Group className="mb-3">
+                <Form.Label>Upload photo</Form.Label>
+                <Row>
+                  {props.forPage === 'edit' && !linkClick.photo && (
+                    <img className="contact-image" src={state.values.photo} />
+                  )}
+                  {(props.forPage === 'add' || linkClick.photo) && (
+                    <Form.Control
+                      onChange={handleChange}
+                      name="photo"
+                      type="file"
+                      accept="image/png, image/jpeg"
+                    />
+                  )}
+                </Row>
+                <Row>
+                  {props.forPage === 'edit' && !linkClick.photo && (
+                    <a
+                      name="photo"
+                      className="add-more"
+                      onClick={handleLinkClickEdit}
+                    >
+                      Edit
+                    </a>
+                  )}
+                </Row>
+
+                {linkClick.photo && (
+                  <Button
+                    className="confirm-button"
+                    variant="dark"
+                    name="photo"
+                    onClick={handleEdit}
+                  >
+                    Confirm
+                  </Button>
+                )}
+              </Form.Group>
+            </Col>
+          ) : (
+            <Col key={index} md={6}>
+              <Form.Group className="mb-3">
+                <Form.Label>{createNameFromKey(key)}</Form.Label>
+                {props.forPage === 'edit' && !linkClick[key] && (
+                  <h3>
+                    {key === 'nickName' && !state.values[key]
+                      ? 'No nickname provided!'
+                      : state.values[key]}
+                  </h3>
+                )}
+                {(props.forPage === 'add' || linkClick[key]) && (
+                  <Form.Control
+                    onChange={handleChange}
+                    name={key}
+                    defaultValue={
+                      props.forPage === 'edit' ? state.values[key] : undefined
+                    }
+                    type="text"
+                    placeholder={createNameFromKey(key)}
+                  />
+                )}
+                {linkClick[key] && (
+                  <Button
+                    className="confirm-button"
+                    variant="dark"
+                    name={key}
+                    onClick={handleEdit}
+                  >
+                    Confirm
+                  </Button>
+                )}
+                {props.forPage === 'edit' && !linkClick[key] && (
+                  <a
+                    name={key}
+                    className="add-more"
+                    onClick={handleLinkClickEdit}
+                  >
+                    Edit
+                  </a>
+                )}
+              </Form.Group>
+              <p className="input-alert">
+                {state.alerts[key] && state.alerts[key]}
+              </p>
+            </Col>
+          )
+        )}
       </Row>
       <Row className="add-contact-submit-button">
-        <Button onClick={handleSubmit} variant="primary">
-          Submit
+        <Button
+          onClick={props.forPage === 'edit' ? handleRemove : handleSubmit}
+          variant={props.forPage === 'edit' ? 'danger' : 'primary'}
+        >
+          {props.forPage === 'edit' ? 'Delete contact' : 'Submit'}
         </Button>
       </Row>
     </Form>

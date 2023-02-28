@@ -1,21 +1,25 @@
-import { ListGroup, Badge, Row, Col } from 'react-bootstrap';
+import { ListGroup, Row, Col } from 'react-bootstrap';
 import { useQuery } from '@apollo/client';
-import { GET_ALL_CONTACTS, GET_FIVE_DESC } from './GraphQL/Queries';
-// import { CREATE_CONTACT } from './GraphQL/Mutations';
+import { GET_ALL_CONTACTS } from './GraphQL/Queries';
 import './styles/ContactsList.css';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useContext } from 'react';
+import { ContactsContext } from './ContactsContext';
 import InfiniteScroll from 'react-infinite-scroll-component';
-// import { useEffect } from 'react';
+import ContactModal from './ContactModal';
 
 export default function ContactsList() {
+  // Main context
+  const { data, fetchMore, contacts, setContacts } =
+    useContext(ContactsContext);
+  // GraphQL
   const { data: allContacts } = useQuery(GET_ALL_CONTACTS);
-  const { data, fetchMore } = useQuery(GET_FIVE_DESC, {
-    variables: { offset: 0 },
-  });
-  const [contacts, setContacts] = useState();
+  // States
   const [hasMore, setHasMore] = useState(true);
+  const [modalShow, setModalShow] = useState(false);
+  // Refs
   const offsetRef = useRef(0);
   const contactsLengthRef = useRef();
+  const editedContactIdRef = useRef();
 
   const getNextContacts = async () => {
     const contactsLength = contactsLengthRef.current;
@@ -39,7 +43,7 @@ export default function ContactsList() {
     if (data) {
       setContacts([...data.getFiveDesc]);
     }
-  }, [data]);
+  }, [data, setContacts]);
   useEffect(() => {
     if (allContacts) {
       contactsLengthRef.current = allContacts.getAll.length;
@@ -70,6 +74,10 @@ export default function ContactsList() {
             <ListGroup as="ol">
               {contacts.map((contact, index) => (
                 <ListGroup.Item
+                  onClick={() => {
+                    editedContactIdRef.current = contact.id;
+                    setModalShow(true);
+                  }}
                   as="li"
                   className="d-flex align-items-start"
                   key={index}
@@ -84,7 +92,11 @@ export default function ContactsList() {
                     </Col>
                     {!contact.nickName && (
                       <Col>
-                        <img className="contact-img" src={contact.photo} />
+                        <img
+                          className="contact-img"
+                          alt="Contact"
+                          src={contact.photo}
+                        />
                       </Col>
                     )}
                   </Row>
@@ -94,6 +106,12 @@ export default function ContactsList() {
           </InfiniteScroll>
         </div>
       )}
+      <ContactModal
+        forPage="edit"
+        editedContactId={editedContactIdRef.current}
+        show={modalShow}
+        onHide={() => setModalShow(false)}
+      />
     </>
   );
 }
