@@ -46,34 +46,12 @@ export default function ContactsList() {
     }
   }, [allContacts]);
 
-  //   const addContact = async () => {
-  //     await createContact({
-  //       variables: {
-  //         contact: {
-  //           firstName: 'Sagi2',
-  //           lastName: 'Mines2',
-  //           phoneNumbers: ['045354353', '234234234'],
-  //           address: 'dsfsdfsdf',
-  //           photo:
-  //             'https://images.unsplash.com/photo-1557862921-37829c790f19?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxzZWFyY2h8NHx8bWFufGVufDB8fDB8fA%3D%3D&w=1000&q=80',
-  //         },
-  //       },
-  //     });
-
-  //     if (error) {
-  //       console.log(error);
-  //     }
-  //   };
-  //   useEffect(() => {
-  //     addContact();
-  //   }, []);
-
   return (
     <>
       {contacts && allContacts.getAll && (
-        <div id="scrollableDiv">
+        <div key={offsetRef.current} id="scrollableDiv">
           <InfiniteScroll
-            key={offsetRef.current}
+            pullDownToRefreshThreshold={1}
             dataLength={contacts.length}
             next={getNextContacts}
             hasMore={hasMore}

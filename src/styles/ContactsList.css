@@ -13,6 +13,7 @@
 }
 
 #scrollableDiv {
+  scroll-behavior: smooth;
   height: 18em;
   overflow: auto;
   width: 50%;
