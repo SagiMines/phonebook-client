@@ -1,3 +1,7 @@
 .phonebook {
   flex-direction: column;
 }
+.add-contact-container,
+.search-container {
+  padding: 1rem 0;
+}
