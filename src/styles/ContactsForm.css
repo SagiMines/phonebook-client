@@ -1,0 +1,22 @@
+.add-contact-submit-button {
+  justify-content: center;
+}
+
+.add-contact-submit-button > button {
+  width: 50%;
+}
+
+.add-more-phones {
+  cursor: pointer;
+  color: blue;
+  font-size: 13px;
+}
+
+.input-alert {
+  font-size: 13px;
+  color: red;
+}
+
+.phone-number {
+  margin-top: 5px;
+}
