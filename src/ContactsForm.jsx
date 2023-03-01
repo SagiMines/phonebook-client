@@ -101,6 +101,25 @@ export default function ContactsForm(props) {
     setState({ ...state });
   };
 
+  const updateContactFunc = async e => {
+    if (!state.alerts[e.target.name]) {
+      await updateContact({
+        variables: {
+          contact: state.values,
+          id: props.editedContactId,
+        },
+      });
+
+      if (updateError) {
+        console.log(updateError);
+      }
+      const refreshContacts = await fetchMore({
+        variables: { offset: 0 },
+      });
+      setContacts([...refreshContacts.data.getFiveDesc]);
+    }
+  };
+
   const addContact = async () => {
     await createContact({
       variables: {
@@ -111,9 +130,10 @@ export default function ContactsForm(props) {
     if (createError) {
       console.log(createError);
     }
-    await fetchMore({
+    const refreshContacts = await fetchMore({
       variables: { offset: 0 },
     });
+    setContacts([...refreshContacts.data.getFiveDesc]);
   };
 
   const createNameFromKey = key => {
@@ -190,9 +210,10 @@ export default function ContactsForm(props) {
     if (removeError) {
       console.log(removeError);
     }
-    await fetchMore({
+    const refreshContacts = await fetchMore({
       variables: { offset: 0 },
     });
+    setContacts([...refreshContacts.data.getFiveDesc]);
   };
 
   const handleEdit = async e => {
@@ -207,26 +228,22 @@ export default function ContactsForm(props) {
 
       setState({ ...state });
     }
-    if (!state.alerts[e.target.name]) {
-      await updateContact({
-        variables: {
-          contact: state.values,
-          id: props.editedContactId,
-        },
-      });
 
-      if (updateError) {
-        console.log(updateError);
-      }
-      const check = await fetchMore({
-        variables: { offset: 0 },
-      });
-      setContacts([...check.data.getFiveDesc]);
-    }
+    await updateContactFunc(e);
+
     e.target.name !== 'phoneNumbers'
       ? (linkClick[e.target.name] = false)
       : (linkClick[e.target.name].click = false);
     setLinkClick({ ...linkClick });
+  };
+
+  const handlePhoneNumberDelete = async e => {
+    const filteredArray = state.values.phoneNumbers.filter(
+      (number, index) => index !== Number(e.target.id)
+    );
+    state.values.phoneNumbers = filteredArray;
+
+    await updateContactFunc(e);
   };
 
   useEffect(() => {
@@ -252,7 +269,21 @@ export default function ContactsForm(props) {
                   state.values.phoneNumbers.map((number, index) => (
                     <div key={index}>
                       {!linkClick.phoneNumbers.click && (
-                        <h3 key={index}>{`${index + 1}. ${number}`}</h3>
+                        <Row>
+                          <Col>
+                            <h3 key={index}>{`${index + 1}. ${number}`}</h3>
+                          </Col>
+                          <Col>
+                            <a
+                              name="phoneNumbers"
+                              id={index}
+                              className="delete"
+                              onClick={handlePhoneNumberDelete}
+                            >
+                              Delete
+                            </a>
+                          </Col>
+                        </Row>
                       )}
                       {linkClick.phoneNumbers.click && (
                         <Form.Control
