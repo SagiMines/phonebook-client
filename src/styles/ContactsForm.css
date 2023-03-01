@@ -12,7 +12,9 @@
   font-size: 13px;
 }
 
-.input-alert {
+.input-alert,
+.delete {
+  cursor: pointer;
   font-size: 13px;
   color: red;
 }

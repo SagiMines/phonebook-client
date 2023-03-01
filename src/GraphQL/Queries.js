@@ -35,3 +35,17 @@ export const GET_ONE_CONTACT = gql`
     }
   }
 `;
+
+export const GET_SEARCH_VALUES = gql`
+  query getSearchValues($firstName: String!) {
+    getSearchValues(firstName: $firstName) {
+      id
+      firstName
+      lastName
+      nickName
+      phoneNumbers
+      address
+      photo
+    }
+  }
+`;

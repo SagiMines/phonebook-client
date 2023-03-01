@@ -9,7 +9,7 @@ import ContactModal from './ContactModal';
 
 export default function ContactsList() {
   // Main context
-  const { data, fetchMore, contacts, setContacts } =
+  const { data, fetchMore, contacts, setContacts, searchData } =
     useContext(ContactsContext);
   // GraphQL
   const { data: allContacts } = useQuery(GET_ALL_CONTACTS);
@@ -24,9 +24,10 @@ export default function ContactsList() {
   const getNextContacts = async () => {
     const contactsLength = contactsLengthRef.current;
     let newData;
-    if (offsetRef.current + 5 === contactsLength) {
+
+    if (offsetRef.current + 5 >= contactsLength) {
       setHasMore(false);
-    } else if (contactsLength - (offsetRef.current + 5) > 5) {
+    } else if (contactsLength - (offsetRef.current + 5) >= 5) {
       offsetRef.current += 5;
       newData = await fetchMore({
         variables: { offset: offsetRef.current },
@@ -40,10 +41,14 @@ export default function ContactsList() {
   };
 
   useEffect(() => {
-    if (data) {
-      setContacts([...data.getFiveDesc]);
+    if (searchData && !data) {
+      setHasMore(contacts.length <= 5 ? false : true);
+    } else if (data) {
+      offsetRef.current = 0;
+      setHasMore(allContacts.getAll.length <= 5 ? false : true);
     }
-  }, [data, setContacts]);
+  }, [searchData, setContacts, fetchMore, data]);
+
   useEffect(() => {
     if (allContacts) {
       contactsLengthRef.current = allContacts.getAll.length;
