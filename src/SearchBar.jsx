@@ -6,6 +6,7 @@ export default function SearchBar({ setIsSearchStarted, lazyQueryContent }) {
   // Main context
   const { fetchMore, setContacts } = useContext(ContactsContext);
 
+  // Handles the values inserted into the search bar
   const handleChange = async e => {
     setIsSearchStarted(true);
     if (e.target.value.length >= 2) {
@@ -21,6 +22,7 @@ export default function SearchBar({ setIsSearchStarted, lazyQueryContent }) {
     }
   };
 
+  // When a user is searching the search bar this useEffect is triggered
   useEffect(() => {
     if (lazyQueryContent.searchData) {
       setContacts([...lazyQueryContent.searchData.getSearchValues]);
