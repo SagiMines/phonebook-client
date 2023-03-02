@@ -7,9 +7,9 @@ import { ContactsContext } from './ContactsContext';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import ContactModal from './ContactModal';
 
-export default function ContactsList() {
+export default function ContactsList({ keyRef }) {
   // Main context
-  const { data, fetchMore, contacts, setContacts, searchData } =
+  const { data, fetchMore, contacts, setContacts, searchData, photoFilters } =
     useContext(ContactsContext);
   // GraphQL
   const { data: allContacts } = useQuery(GET_ALL_CONTACTS);
@@ -21,6 +21,7 @@ export default function ContactsList() {
   const contactsLengthRef = useRef();
   const editedContactIdRef = useRef();
 
+  // The next function of the "InfinateScroll" component
   const getNextContacts = async () => {
     const contactsLength = contactsLengthRef.current;
     let newData;
@@ -33,13 +34,17 @@ export default function ContactsList() {
         variables: { offset: offsetRef.current },
       });
       setContacts([...newData.data.getFiveDesc]);
+      keyRef.current = Math.random();
     } else if (contactsLength - (offsetRef.current + 5) < 5) {
       offsetRef.current = contactsLength - 5;
       newData = await fetchMore({ variables: { offset: offsetRef.current } });
       setContacts([...newData.data.getFiveDesc]);
+      keyRef.current = Math.random();
     }
+    console.log(keyRef.current);
   };
 
+  //Initializes the contacts list when the user uses the search bar / the initial list
   useEffect(() => {
     if (searchData && !data) {
       setHasMore(contacts.length <= 5 ? false : true);
@@ -49,6 +54,7 @@ export default function ContactsList() {
     }
   }, [searchData, setContacts, fetchMore, data]);
 
+  // Sets the length of all the contacts
   useEffect(() => {
     if (allContacts) {
       contactsLengthRef.current = allContacts.getAll.length;
@@ -98,6 +104,19 @@ export default function ContactsList() {
                     {!contact.nickName && (
                       <Col>
                         <img
+                          style={
+                            photoFilters[contact.id]
+                              ? {
+                                  filter: `${photoFilters[contact.id].type}(${
+                                    photoFilters[contact.id].amount
+                                  }${
+                                    photoFilters[contact.id].type === 'blur'
+                                      ? 'px'
+                                      : '%'
+                                  })`,
+                                }
+                              : undefined
+                          }
                           className="contact-img"
                           alt="Contact"
                           src={contact.photo}

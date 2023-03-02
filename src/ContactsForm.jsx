@@ -1,4 +1,4 @@
-import { Col, Form, Button, Row } from 'react-bootstrap';
+import { Col, Form, Button, Row, InputGroup } from 'react-bootstrap';
 import configData from './config/config.json';
 import S3FileUpload from 'react-s3';
 import './styles/ContactsForm.css';
@@ -9,8 +9,11 @@ import {
   CREATE_CONTACT,
   UPDATE_CONTACT,
   REMOVE_CONTACT,
+  CREATE_PHOTO_FILTER,
+  UPDATE_PHOTO_FILTER,
 } from './GraphQL/Mutations';
 import { GET_ONE_CONTACT } from './GraphQL/Queries';
+import SelectFilter from './SelectFilter';
 window.Buffer = window.Buffer || require('buffer').Buffer;
 
 // Configuration for react-s3 package
@@ -23,8 +26,14 @@ const config = {
 
 export default function ContactsForm(props) {
   // Main context
-  const { fetchMore, setContacts } = useContext(ContactsContext);
+  const { fetchMore, setContacts, photoFilters, setPhotoFilters } =
+    useContext(ContactsContext);
+
   // GraphQL
+  const [updatePhotoFilter, { error: updatePhotoFilterError }] =
+    useMutation(UPDATE_PHOTO_FILTER);
+  const [createPhotoFilter, { error: createPhotoFilterError }] =
+    useMutation(CREATE_PHOTO_FILTER);
   const [createContact, { error: createError }] = useMutation(CREATE_CONTACT);
   const [updateContact, { error: updateError }] = useMutation(UPDATE_CONTACT);
   const [removeContact, { error: removeError }] = useMutation(REMOVE_CONTACT);
@@ -32,7 +41,10 @@ export default function ContactsForm(props) {
     skip: props.forPage === 'add',
     variables: { id: props.editedContactId },
   });
+
   // States
+  const [isAddedFilter, setIsAddedFilter] = useState(false);
+  const [photoFilter, setPhotoFilter] = useState({});
   const [linkClick, setLinkClick] = useState(
     props.forPage === 'add'
       ? 0
@@ -65,6 +77,7 @@ export default function ContactsForm(props) {
   // Refs
   const phoneNumberInputRef = useRef({});
 
+  // Manages each input change and updates the state
   const handleChange = e => {
     e.target.name === 'photo'
       ? (state.values[e.target.name] = e.target.files[0])
@@ -94,6 +107,14 @@ export default function ContactsForm(props) {
             : null;
         break;
       case 'photo':
+        // get the photo
+        S3FileUpload.uploadFile(state.values.photo, config)
+          .then(data => {
+            state.values.photo = data.location;
+            setState({ ...state });
+            handleEdit(e);
+          })
+          .catch(err => console.error(err));
         break;
       default:
         console.log('Wrong input');
@@ -101,6 +122,7 @@ export default function ContactsForm(props) {
     setState({ ...state });
   };
 
+  // Updates the contact's DB and updates the state
   const updateContactFunc = async e => {
     if (!state.alerts[e.target.name]) {
       await updateContact({
@@ -120,22 +142,56 @@ export default function ContactsForm(props) {
     }
   };
 
+  // Adds a new contact to the DB and updates the state
   const addContact = async () => {
-    await createContact({
-      variables: {
-        contact: state.values,
-      },
-    });
+    let newContact;
 
-    if (createError) {
-      console.log(createError);
+    if (isAddedFilter) {
+      if (typeof photoFilter.amount === 'number' && photoFilter.type) {
+        newContact = await createContact({
+          variables: {
+            contact: state.values,
+          },
+        });
+
+        if (createError) {
+          console.log(createError);
+        }
+        const newContactId = newContact.data.createContact.id;
+        photoFilter.contactId = newContactId;
+        const addedFilter = await createPhotoFilter({
+          variables: {
+            photoFilter: photoFilter,
+          },
+        });
+
+        if (createPhotoFilterError) {
+          console.log(createPhotoFilterError);
+        }
+        const filterData = { ...addedFilter.data.createDataFilter };
+        delete filterData.__typename;
+        photoFilters[filterData.contactId] = filterData;
+        setPhotoFilters({ ...photoFilters });
+      }
+    } else {
+      await createContact({
+        variables: {
+          contact: state.values,
+        },
+      });
+
+      if (createError) {
+        console.log(createError);
+      }
     }
+
     const refreshContacts = await fetchMore({
       variables: { offset: 0 },
     });
     setContacts([...refreshContacts.data.getFiveDesc]);
   };
 
+  // Takes the camel-cased key value and changes it to a "first letter capitilized" syntax
   const createNameFromKey = key => {
     let name = key;
     if (/[A-Z]/.test(key)) {
@@ -151,6 +207,18 @@ export default function ContactsForm(props) {
     return name;
   };
 
+  // Handles the photo filter amount changes
+  const handleFilterAmountChange = e => {
+    const filterAmount = Number(e.target.value);
+    filterAmount < 0
+      ? (photoFilter.amount = `* Filter's amount can't be negative`)
+      : e.target.value === ''
+      ? (photoFilter.amount = `* Filter's amount can't be empty`)
+      : (photoFilter.amount = filterAmount);
+    setPhotoFilter({ ...photoFilter });
+  };
+
+  // Handles individual phone number changes
   const handlePhoneNumberChange = e => {
     phoneNumberInputRef.current[e.target.id] = e.target.value;
 
@@ -162,6 +230,7 @@ export default function ContactsForm(props) {
             : null);
   };
 
+  // Handles submition of a "Add Contact" form
   const handleSubmit = async () => {
     if (props.forPage === 'add') {
       for (const [key, value] of Object.entries(phoneNumberInputRef.current)) {
@@ -176,22 +245,13 @@ export default function ContactsForm(props) {
     if (!state.values.nickName) {
       delete state.values.nickName;
     }
-
     if (!check.length) {
-      // get the photo
-      S3FileUpload.uploadFile(state.values.photo, config)
-        .then(data => {
-          state.values.photo = data.location;
-          setState({ ...state });
-          addContact();
-        })
-        .catch(err => console.error(err));
-    } else {
-      console.log('Wrong input data provided');
+      await addContact();
+      props.closeModal();
     }
-    props.closeModal();
   };
 
+  // When a user clicks on the edit anchor tag
   const handleLinkClickEdit = e => {
     e.target.name === 'phoneNumbers'
       ? (linkClick[e.target.name].click = true)
@@ -199,6 +259,7 @@ export default function ContactsForm(props) {
     setLinkClick({ ...linkClick });
   };
 
+  // Handle the removal of a contact
   const handleRemove = async () => {
     props.closeModal();
     await removeContact({
@@ -216,27 +277,52 @@ export default function ContactsForm(props) {
     setContacts([...refreshContacts.data.getFiveDesc]);
   };
 
+  // Handles a edit of a contact
   const handleEdit = async e => {
-    if (e.target.name === 'phoneNumbers') {
-      for (const [key, value] of Object.entries(phoneNumberInputRef.current)) {
-        state.values.phoneNumbers[key] = value;
+    if (e.target.name === 'filter') {
+      if (isAddedFilter) {
+        if (typeof photoFilter.amount === 'number' && photoFilter.type) {
+          photoFilter.contactId = props.editedContactId;
+          const addedFilter = await updatePhotoFilter({
+            variables: {
+              photoFilter: photoFilter,
+              contactId: props.editedContactId,
+            },
+          });
+
+          if (updatePhotoFilterError) {
+            console.log(createPhotoFilterError);
+          }
+
+          photoFilters[props.editedContactId] = {
+            id: addedFilter.data.updatePhotoFilter.id,
+            ...photoFilter,
+          };
+
+          setPhotoFilter({ ...photoFilter });
+          setPhotoFilters({ ...photoFilters });
+          setIsAddedFilter(false);
+        }
       }
+    } else {
+      if (e.target.name === 'phoneNumbers') {
+        for (const [key, value] of Object.entries(
+          phoneNumberInputRef.current
+        )) {
+          state.values.phoneNumbers[key] = value;
+        }
+      }
+
+      await updateContactFunc(e);
+
+      e.target.name !== 'phoneNumbers'
+        ? (linkClick[e.target.name] = false)
+        : (linkClick[e.target.name].click = false);
+      setLinkClick({ ...linkClick });
     }
-    if (e.target.name === 'photo') {
-      const newData = await S3FileUpload.uploadFile(state.values.photo, config);
-      state.values.photo = newData.location;
-
-      setState({ ...state });
-    }
-
-    await updateContactFunc(e);
-
-    e.target.name !== 'phoneNumbers'
-      ? (linkClick[e.target.name] = false)
-      : (linkClick[e.target.name].click = false);
-    setLinkClick({ ...linkClick });
   };
 
+  // When a user deletes a phone number in the edit section
   const handlePhoneNumberDelete = async e => {
     const filteredArray = state.values.phoneNumbers.filter(
       (number, index) => index !== Number(e.target.id)
@@ -246,6 +332,7 @@ export default function ContactsForm(props) {
     await updateContactFunc(e);
   };
 
+  // Initializes the user details section
   useEffect(() => {
     if (props.forPage === 'edit' && queryData) {
       state.values = { ...queryData.getOne };
@@ -381,9 +468,94 @@ export default function ContactsForm(props) {
               <Form.Group className="mb-3">
                 <Form.Label>Upload photo</Form.Label>
                 <Row>
-                  {props.forPage === 'edit' && !linkClick.photo && (
-                    <img className="contact-image" src={state.values.photo} />
-                  )}
+                  <Row>
+                    <Col>
+                      {(props.forPage === 'edit' ||
+                        (props.forPage === 'add' && state.values.photo)) && (
+                        <img
+                          style={
+                            photoFilter && isAddedFilter
+                              ? {
+                                  filter: `${photoFilter.type}(${
+                                    typeof photoFilter.amount === 'string'
+                                      ? 0
+                                      : photoFilter.amount
+                                  }${
+                                    photoFilter.type === 'blur' ? 'px' : '%'
+                                  })`,
+                                }
+                              : photoFilters[props.editedContactId]
+                              ? {
+                                  filter: `${
+                                    photoFilters[props.editedContactId].type
+                                  }(${
+                                    typeof photoFilters[props.editedContactId]
+                                      .amount === 'string'
+                                      ? 0
+                                      : photoFilters[props.editedContactId]
+                                          .amount
+                                  }${
+                                    photoFilters[props.editedContactId].type ===
+                                    'blur'
+                                      ? 'px'
+                                      : '%'
+                                  })`,
+                                }
+                              : undefined
+                          }
+                          className="contact-image"
+                          src={state.values.photo}
+                        />
+                      )}
+                    </Col>
+                    <Col>
+                      {state.values.photo && (
+                        <a
+                          onClick={() => setIsAddedFilter(prevVal => !prevVal)}
+                          className="add-more"
+                        >
+                          {isAddedFilter ? 'Remove filter' : 'Add filter'}
+                        </a>
+                      )}
+                    </Col>
+                  </Row>
+                  <Row>
+                    {state.values.photo && isAddedFilter && (
+                      <Col md={12} className="margined">
+                        <SelectFilter
+                          photoFilter={{ photoFilter, setPhotoFilter }}
+                        />
+                      </Col>
+                    )}
+                    {state.values.photo && isAddedFilter && (
+                      <Col md={12} className="margined">
+                        <InputGroup>
+                          <Form.Control
+                            onChange={handleFilterAmountChange}
+                            min={0}
+                            type="number"
+                            placeholder="Filter amount"
+                          />
+                        </InputGroup>
+                        <p className="input-alert">
+                          {typeof photoFilter.amount === 'string' &&
+                            photoFilter.amount}
+                        </p>
+                      </Col>
+                    )}
+                    {props.forPage === 'edit' &&
+                      state.values.photo &&
+                      isAddedFilter && (
+                        <Button
+                          className="confirm-button"
+                          variant="dark"
+                          name="filter"
+                          onClick={handleEdit}
+                        >
+                          Confirm
+                        </Button>
+                      )}
+                  </Row>
                   {(props.forPage === 'add' || linkClick.photo) && (
                     <Form.Control
                       onChange={handleChange}
@@ -397,24 +569,13 @@ export default function ContactsForm(props) {
                   {props.forPage === 'edit' && !linkClick.photo && (
                     <a
                       name="photo"
-                      className="add-more"
+                      className="add-more margined"
                       onClick={handleLinkClickEdit}
                     >
                       Edit
                     </a>
                   )}
                 </Row>
-
-                {linkClick.photo && (
-                  <Button
-                    className="confirm-button"
-                    variant="dark"
-                    name="photo"
-                    onClick={handleEdit}
-                  >
-                    Confirm
-                  </Button>
-                )}
               </Form.Group>
             </Col>
           ) : (
@@ -422,9 +583,15 @@ export default function ContactsForm(props) {
               <Form.Group className="mb-3">
                 <Form.Label>{createNameFromKey(key)}</Form.Label>
                 {props.forPage === 'edit' && !linkClick[key] && (
-                  <h3>
+                  <h3
+                    className={
+                      key === 'nickName' && !state.values[key]
+                        ? 'no-nickname'
+                        : undefined
+                    }
+                  >
                     {key === 'nickName' && !state.values[key]
-                      ? 'No nickname provided!'
+                      ? '* No nickname provided!'
                       : state.values[key]}
                   </h3>
                 )}

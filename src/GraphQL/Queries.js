@@ -1,5 +1,6 @@
 import { gql } from '@apollo/client';
 
+// contacts
 export const GET_FIVE_DESC = gql`
   query getFiveDesc($offset: Float!) {
     getFiveDesc(offset: $offset) {
@@ -46,6 +47,19 @@ export const GET_SEARCH_VALUES = gql`
       phoneNumbers
       address
       photo
+    }
+  }
+`;
+
+// photo-filter
+
+export const GET_BY_CONTACT_ID = gql`
+  query getByContactId($contactId: Float!) {
+    getByContactId(contactId: $contactId) {
+      id
+      type
+      amount
+      contactId
     }
   }
 `;

@@ -7,6 +7,7 @@ import {
   HttpLink,
   from,
 } from '@apollo/client';
+import { useRef } from 'react';
 import { onError } from '@apollo/client/link/error';
 import configData from './config/config.json';
 
@@ -26,10 +27,11 @@ const client = new ApolloClient({
 });
 
 function App() {
+  const keyRef = useRef(Math.random());
   return (
     <ApolloProvider client={client}>
       <div className="App container-center">
-        <PhoneBook />
+        <PhoneBook key={keyRef.current} keyRef={keyRef} />
       </div>
     </ApolloProvider>
   );

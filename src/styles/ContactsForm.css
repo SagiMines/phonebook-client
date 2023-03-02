@@ -19,8 +19,16 @@
   color: red;
 }
 
+.no-nickname {
+  color: red;
+}
+
 .phone-number {
   margin-top: 5px;
+}
+
+.margined {
+  margin: 5px 0;
 }
 
 .contact-image {
