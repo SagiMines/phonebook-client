@@ -1,71 +1,96 @@
-# Getting Started with Create React App
+# Phonebook - Client Repository
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+<div align='center'>
+<img src='https://lh3.googleusercontent.com/pw/ADCreHcw1MCcyUzPoegjnXSRx2U-YrjjmzkwabyscP6F_vUOcModeHRNqH0fyofnF7DT-0b9_WIcg9MJra8krITPN2HuP2POe7O2wgq-IRfZuqVVY8rw-BVig7fFgTm3cByQVFr_sLonvHXCoQAU9spLM1ij=w831-h480-s-no?authuser=3' width=600 />
+</div>
 
-## Available Scripts
+Welcome to Phonebook, an open-source web application that simplifies contact management. Phonebook allows users to store contact information, including full names, nicknames, phone numbers, addresses, and photos. Users can add, delete, update, and search for contacts with ease. This project is developed using React for the frontend and Node.js with NestJS for the backend. The client-server communication is powered by GraphQL, and all data is stored in a PostgreSQL database. The server and database are Dockerized for easy deployment and scalability.
 
-In the project directory, you can run:
+## Table of Contents
 
-### `npm start`
+- [Overview](#overview)
+- [Technology Stack](#technology-stack)
+- [Features](#features)
+- [Getting Started](#getting-started)
+- [Environment Variables](#environment-variables)
+- [Usage](#usage)
+- [Related](#related)
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Overview
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+Phonebook simplifies contact management, making it easy to store and organize your contacts. Whether you're a personal user or a business, Phonebook can help you manage your contacts efficiently.
 
-### `npm test`
+### Technology Stack
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- **Frontend:** Phonebook's frontend is developed using React, providing a responsive and user-friendly interface.
 
-### `npm run build`
+- **Backend:** The backend is powered by Node.js with NestJS, offering a structured and scalable architecture for managing contact data.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+- **Client-Server Communication:** GraphQL is used to facilitate efficient and flexible communication between the client and server.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+- **Database:** All contact data is stored in a PostgreSQL database, ensuring data integrity and reliability.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+- **Dockerization:** Both the server and database are Dockerized, simplifying deployment and scalability.
 
-### `npm run eject`
+### Features
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+- **Contact Management:** Users can add, delete, update, and search for contacts.
+- **Contact Details:** Store full names, nicknames, phone numbers, addresses, and photos for each contact.
+- **Efficient Communication:** GraphQL enables efficient and precise data exchange between the client and server.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Getting Started
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+To set up Phonebook client, firstly, make sure you installed the [Phonebook server](https://github.com/SagiMines/phonebook-server) locally.  
+Then, to install Phonebook client locally or deploy a similar platform, follow these steps:
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+1. Clone this repository to your local machine.
 
-## Learn More
+```bash
+git clone https://github.com/SagiMines/phonebook-client.git
+cd phonebook-client
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+2. Install the necessary dependencies.
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+```bash
+npm install
+```
 
-### Code Splitting
+3. Configure your environment variables using - [Environment Variables Guidence](#environment-variables).
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+4. Run the application locally for development.
 
-### Analyzing the Bundle Size
+```bash
+npm run start
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## Environment Variables
 
-### Making a Progressive Web App
+To run Phonebook client, you will need to add a folder in your `src` folder named: **`config`**.
+Inside the config folder create a new file named: **`config.json`**, create a JSON variable with the following attributes:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+**Server Route:**
 
-### Advanced Configuration
+`SERVER_URL` - Your server route.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+**AWS S3 connection:**
 
-### Deployment
+`S3_BUCKET_NAME` - Your AWS user S3 bucket name.  
+`S3_DIR_NAME` - Your AWS user S3 dir name.  
+`S3_REGION` - Your AWS user S3 chosen region.  
+`S3_ACCESS_KEY` - Your AWS user S3 access key.  
+`S3_ACCESS_SECRET_KEY` - Your AWS user S3 access secret key.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## Usage
 
-### `npm run build` fails to minify
+Once Phonebook is set up, users can:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
-# phonebook-client
+- Add new contacts with full name, nickname, phone number, address, and photo.
+- Delete, update, or search for specific contacts.
+- Efficiently manage their contact list.
+
+## Related
+
+[Phonebook Server Repository](https://github.com/SagiMines/phonebook-server)
+
+Efficiently manage your contacts with Phonebook!
